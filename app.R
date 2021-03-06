@@ -7,6 +7,7 @@ library(magrittr)
 library(stringi)
 library(janitor)
 library(broom)
+library(PearsonDS)
 
 ui <- fluidPage(
   # Setup title part ---------------------------
@@ -19,7 +20,7 @@ ui <- fluidPage(
   # Themes changes app layout
   theme = shinytheme("united"),
   #  shinythemes::themeSelector(),  # <--- Add this somewhere in the UI
-  navbarPage("test-stats app",
+  navbarPage("psych-stats app",
              # Inputs
              tabPanel("t-value",
                sidebarPanel( 
@@ -49,8 +50,8 @@ ui <- fluidPage(
                      sidebarPanel(
                        sliderInput("cor", label = "Pearson's r", 
                                    min = -.99, max = .99, value = 0),
-                       sliderInput("sdcor", label = "SD", 
-                                   min = 1, max = 100, value = 50),
+#                       sliderInput("sdcor", label = "SD", 
+ #                                  min = 1, max = 100, value = 50),
                        sliderInput("ncor", label = "Sample size", 
                                    min = 10, max = 500, value = 250),
                      ),
@@ -63,7 +64,7 @@ ui <- fluidPage(
                                    min = 70, max = 80, value = 75),
                        sliderInput("beta", label = "Slope", 
                                    min = -5, max = 5, value = 0),
-                       sliderInput("lmsd", label = "SD", 
+                       sliderInput("lmsd", label = "SD (of y)", 
                                    min = 1, max = 10, value = 5),
                        sliderInput("nlm", label = "Sample size", 
                                    min = 10, max = 500, value = 250),
@@ -74,13 +75,29 @@ ui <- fluidPage(
                      mainPanel(
                         plotOutput("lmplot"),
                       
-                        verbatimTextOutput("lmout")
+                        verbatimTextOutput("lmout"),
+                        "NB. If the Pr(>|t|) column shows 0, this just means the p-value is very small. It's not (ever) actually 0."
 #                        box(title = "Coefficients table"
 #                            , status = "primary", solidHeader = F
 #                            , collapsible = T, width = 12
 #                            , column(12, align="center", tableOutput('lmsummary')))
-          )), 
-            tabPanel("Daisie",
+          )),
+          tabPanel("Distribution",
+                   sidebarPanel( 
+                     sliderInput("dist_mean", label = "Mean", 
+                                 min = -30, max = 30, value = 0),
+                     sliderInput("dist_sd", label = "SD", 
+                                 min = 1, max = 30, value = 10),
+                     sliderInput("dist_n", label = "Sample size", 
+                                 min = 10, max = 1000, value = 500),
+                     sliderInput("dist_skew", label = "Skewness", 
+                                 min = -1.5, max = 1.5, step = .25, value = 0),
+                     sliderInput("dist_kurt", label = "Kurtosis", 
+                                 min = 2, max = 10, value = 3)
+                   ),
+                   mainPanel(plotOutput("distribution")),
+          ),
+          tabPanel("Daisie",
                      mainPanel( imageOutput("photo")))
             )
 )
@@ -92,9 +109,9 @@ server <- function(input, output, session) {
   output$tplot <- renderPlot({
     
     effect <- input$effect
-    mean <- 100
-    mean1 <- mean - effect/2
-    mean2 <- mean + effect/2
+    mean <- 150
+    mean1 <- mean 
+    mean2 <- mean + effect
     sd <- input$sd
     N <- input$n
     ya <- rnorm(N/2, mean = mean1, sd = sd)
@@ -109,18 +126,18 @@ server <- function(input, output, session) {
     df <- tres$parameter #%>% pull()
     tvalue <- round(-tres$statistic,2)
     pvalue <- round(tres$`p.value`,3)
-    pvalue <- ifelse(pvalue < 0.001, "<0.001", 
-                     ifelse(pvalue < 0.01, "<0.01", 
-                            ifelse(pvalue < 0.05, "<0.05", 
-                                   paste0("=",pvalue))))
+    pvalue <- ifelse(pvalue < 0.001, "< 0.001", 
+                     ifelse(pvalue < 0.01, "< 0.01", 
+                            ifelse(pvalue < 0.05, "< 0.05", 
+                                   paste0("= ",pvalue))))
     
     ggplot(tdata, aes(y = y, x = group)) +
-      geom_boxplot(width = .5, outlier.shape = NA) +
-      geom_jitter(size = 1, alpha = .5, shape = 21, width = .25) +
+      geom_boxplot(width = .25, outlier.shape = NA) +
+      geom_jitter(size = 1, alpha = .5, shape = 21, width = .1) +
       theme_classic(base_size = 16) +
-      scale_y_continuous(limits = c(0, 220)) +
+      scale_y_continuous(limits = c(0, 320)) +
       labs(y = "Dependent variable", x = "Independent variable",
-           caption = bquote(italic("t")*"("*.(df)*")"*"="*.(tvalue)*","~italic("p")*.(pvalue))) +
+           caption = bquote(italic("t")*"("*.(df)*")"~"="~.(tvalue)*","~italic("p")~.(pvalue))) +
       theme(plot.caption = element_text(size = 16))
 #           title = bquote(italic("t")*"("*.(N - 2)*")="*.(tvalue)*", "*italic("p")*.(pvalue)))
 #    annotate("label", x = Inf, y = Inf,
@@ -136,9 +153,9 @@ server <- function(input, output, session) {
     effect1 <- input$effect1
     effect2 <- input$effect2
     mean <- 200
-    mean1 <- mean - effect1/2
+    mean1 <- mean - effect1
     mean2 <- mean 
-    mean3 <- mean2 + effect2/2
+    mean3 <- mean2 + effect2
     
     sd <- input$sd_aov
     N <-  input$n_aov
@@ -157,18 +174,18 @@ server <- function(input, output, session) {
     pvalue <- round(aov[[1]]$`Pr(>F)`[1],3)  
     dfs <- aov[[1]]$Df
     
-    pvalue <- ifelse(pvalue < 0.001, "<0.001", 
-                     ifelse(pvalue < 0.01, "<0.01", 
-                            ifelse(pvalue < 0.05, "<0.05", 
-                                   paste0("=",pvalue))))
+    pvalue <- ifelse(pvalue < 0.001, "< 0.001", 
+                     ifelse(pvalue < 0.01, "< 0.01", 
+                            ifelse(pvalue < 0.05, "< 0.05", 
+                                   paste0("= ",pvalue))))
     
     ggplot(fdata, aes(y = y, x = group)) +
-      geom_boxplot(width = .5, outlier.shape = NA) +
-      geom_jitter(size = 1, alpha = .5, shape = 21, width = .25) +
+      geom_boxplot(width = .25, outlier.shape = NA) +
+      geom_jitter(size = 1, alpha = .5, shape = 21, width = .1) +
       theme_classic(base_size = 16) +
       scale_y_continuous(limits = c(0, 400)) +
       labs(y = "Dependent variable", x = "Independent variable",
-           caption = bquote(italic("F")*"("*.(dfs[1])*", "*.(dfs[2])*")="*.(fvalue)*", "*italic("p")*.(pvalue))) + 
+           caption = bquote(italic("F")*"("*.(dfs[1])*","~.(dfs[2])*") ="~.(fvalue)*","~italic("p")~.(pvalue))) + 
       theme(plot.caption = element_text(size = 16))
     
     
@@ -177,18 +194,18 @@ server <- function(input, output, session) {
   output$corplot <- renderPlot({
     N <- input$ncor
     cor <- input$cor
-    sd <- input$sdcor
+    sd <- 50#input$sdcor
     cors <- faux::rnorm_multi(N, 2, 100, sd, cor, varnames = c("x", "y"))
     pvalue <- round(cor.test(cors$x, cors$y, method = "pearson")$p.value,3)
-    pvalue <- ifelse(pvalue < 0.001, "<0.001", 
-                     ifelse(pvalue < 0.01, "<0.01", 
-                            ifelse(pvalue < 0.05, "<0.05", 
-                                   paste0("=",pvalue))))
+    pvalue <- ifelse(pvalue < 0.001, "< 0.001", 
+                     ifelse(pvalue < 0.01, "< 0.01", 
+                            ifelse(pvalue < 0.05, "< 0.05", 
+                                   paste0("= ",pvalue))))
     
     ggplot(cors, aes(x = x, y = y)) +
       geom_point(size = 1, alpha = .5, shape = 21) +
       theme_classic(base_size = 16) +
-      labs(caption = bquote(italic("r")*"="*.(round(cor,2))*", "*italic("p")*.(pvalue))) +
+      labs(caption = bquote(italic("r")~"="~.(round(cor,2))*","~italic("p")~.(pvalue))) +
       scale_y_continuous(limits = c(0, 200)) +
       scale_x_continuous(limits = c(0, 200)) +
       theme(plot.caption = element_text(size = 16))
@@ -220,10 +237,11 @@ server <- function(input, output, session) {
       geom_point(size = 1, alpha = .5, shape = 21) +
       theme_classic(base_size = 16) +
       labs(caption = bquote(italic("R")^2==.(r2))) +
-      scale_y_continuous(limits = c(50, 100)) +
-      scale_x_continuous(limits = c(0, 5)) +
+      scale_y_continuous(limits = c(50, 100), expand = c(0, 0)) +
+      scale_x_continuous(limits = c(0, 5), expand = c(0, 0)) +
       theme(plot.caption = element_text(size = 16))
     
+
     if(input$show_rl){
       gg + geom_smooth(method = "lm", se = F, colour = "forestgreen") 
     } 
@@ -235,9 +253,9 @@ server <- function(input, output, session) {
     m <- lm(y ~ x, data = lmdata())
 
     tidy(m) %>% as.data.frame() %>%
-      mutate(`p.value`= ifelse(`p.value` < 0.001, "<0.001", 
-                           ifelse(`p.value` < 0.01, "<0.01", 
-                              ifelse(`p.value` < 0.05, "<0.05", round(`p.value`,3)))) ) %>%
+      mutate(`p.value`= ifelse(`p.value` < 0.001, "< 0.001", 
+                           ifelse(`p.value` < 0.01, "< 0.01", 
+                              ifelse(`p.value` < 0.05, "< 0.05", round(`p.value`,3)))) ) %>%
       rename(predictor = term,
              se = `std.error`,
              `t-value` = statistic,
@@ -251,6 +269,18 @@ server <- function(input, output, session) {
     m <- lm(y ~ x, data = data)
     summary(m)$coef %>% as.data.frame() %>% mutate(across(where(is.numeric), round, 3))
   })
+  
+  output$distribution <- renderPlot({
+    K <- c(mean = input$dist_mean, variance = input$dist_sd^2, skewness = input$dist_skew, kurtosis = input$dist_kurt)
+    data <- tibble(x = rpearson(input$dist_n, moments = K))
+#    K <- c(mean = 0, variance = 20, skewness = 0, kurtosis = 3)
+#    data <- tibble(x = rpearson(100, moments = K))
+    ggplot(data, aes(x = x)) +
+      geom_histogram(fill = "darkred", colour = "black", alpha = .5) +
+      scale_x_continuous(limits = c(-50, 50)) +
+      theme_classic(base_size = 16) 
+    
+  }, height = 380, width = 520)
   
   output$photo <- renderImage({
     list(

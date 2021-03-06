@@ -1,0 +1,12 @@
+name: test-statistic-app
+title: test-statistic-app
+username:
+account: jens-roeser
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3716796
+bundleId: 4300869
+url: https://jens-roeser.shinyapps.io/test-statistic-app/
+when: 1614874864.16873
+asMultiple: FALSE
+asStatic: FALSE
